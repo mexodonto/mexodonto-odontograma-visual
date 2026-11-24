@@ -21,6 +21,31 @@
   body.print-patient .patient-data-print input, body.print-patient .patient-data-print select, body.print-patient .patient-data-print textarea { border:0 !important; padding:3px !important; background:transparent !important; color:#203247 !important; }
   body.print-patient .panel { break-inside:avoid; }
 }
+
+/* Adaptación de escritorio: aprovecha el ancho disponible sin perder el desplazamiento en móviles. */
+@media (min-width: 900px){
+  .wrap{max-width:1440px;padding:22px 26px}
+  header{padding:24px max(26px,calc((100vw - 1388px)/2))}
+  .panel{padding:20px;margin-bottom:18px}
+  .teeth{min-width:0;width:100%;gap:clamp(3px,.55vw,9px)}
+  .tooth{flex:1 1 0;min-width:0;width:auto;padding:5px 2px 7px}
+  .tooth-svg{width:clamp(36px,3.1vw,48px);height:clamp(54px,4.6vw,68px)}
+  .surface-teeth{min-width:0;width:100%;gap:clamp(3px,.45vw,7px)}
+  .surface-tooth-card{flex:1 1 0;min-width:0;width:auto;padding:5px 2px}
+  .surface-tooth-card .tooth-svg{width:clamp(30px,2.6vw,40px);height:clamp(42px,3.7vw,54px)}
+  .surface-grid{grid-template-columns:repeat(3,clamp(15px,1.35vw,20px));grid-template-rows:repeat(3,clamp(15px,1.35vw,20px));gap:2px}
+  .surface-cell{width:clamp(15px,1.35vw,20px);height:clamp(15px,1.35vw,20px);min-height:clamp(15px,1.35vw,20px);font-size:clamp(8px,.65vw,10px)}
+  .detail{grid-template-columns:minmax(220px,.8fr) minmax(360px,1.4fr)}
+  .actions button,.modes button{min-height:42px}
+}
+@media (min-width:900px) and (max-width:1150px){
+  .surface-grid{grid-template-columns:repeat(3,14px);grid-template-rows:repeat(3,14px)}
+  .surface-cell{width:14px;height:14px;min-height:14px;font-size:8px}
+}
+@media (max-width:899px){
+  .surface-teeth{min-width:820px}
+  .teeth{min-width:710px}
+}
 </style></head><body><header><div class="wrap"><h1>Mexodonto</h1><p>Odontograma visual interactivo · Almacenamiento local · Generación de PDF</p></div></header>
 <main class="wrap" id="app">
 <section class="panel patient-data-print"><h2>Datos del paciente</h2><div class="grid"><div><label>Nombre completo</label><input id="patient" placeholder="Nombre completo"></div><div><label>Edad</label><input id="age" type="number" min="0" max="120" placeholder="Edad"></div><div><label>Sexo</label><select id="sex"><option value="">Selecciona</option><option>Femenino</option><option>Masculino</option><option>Otro</option><option>Prefiere no especificar</option></select></div><div><label>Fecha</label><input id="date" type="date"></div><div class="no-print"><label>Dentición</label><select id="dentition"><option value="adult">Permanente</option><option value="primary">Temporal</option><option value="mixed">Mixta</option></select></div></div><label>Datos relevantes del paciente</label><textarea id="patientRelevant" placeholder="Antecedentes o información importante del paciente..."></textarea><div class="actions no-print"><select id="patientSelect" style="max-width:240px"><option value="">Expedientes guardados</option></select><button class="secondary" id="newPatient">Nuevo paciente</button><button class="secondary" id="view">Vista para paciente</button><button id="pdfClinical">Generar PDF clínico</button><button class="secondary" id="pdfPatient">Generar PDF para paciente</button></div></section>
@@ -59,10 +84,13 @@ function currentTeeth(){let u=mode==="primary"?PU:mode==="mixed"?[...AU.slice(0,
 function isUpper(n){return [1,2,5,6].includes(Math.floor(n/10))}
 function backSurface(n){return isUpper(n)?"Palatina":"Lingual"}
 function allSurfaces(n){return ["Vestibular","Mesial","Oclusal","Distal",backSurface(n)]}
+// En el lado derecho del paciente (cuadrantes 1, 4, 5 y 8), distal queda a la izquierda y mesial a la derecha.
+function patientRightSide(n){return [1,4,5,8].includes(Math.floor(n/10))}
+function surfaceLayout(n){let back=backSurface(n);return patientRightSide(n)?["Vestibular","Distal","Oclusal","Mesial",back]:["Vestibular","Mesial","Oclusal","Distal",back]}
 function surfaceShort(s){return s==="Vestibular"?"V":s==="Mesial"?"M":s==="Oclusal"?"O":s==="Distal"?"D":s==="Palatina"?"P":"L"}
-function syncSurfaceControls(){let names=selected?allSurfaces(selected):["Vestibular","Mesial","Oclusal","Distal","Lingual / palatina"];$("surfaceControls").innerHTML=`<button class="surface top" data-s="${names[0]}">Vestibular</button><button class="surface left" data-s="${names[1]}">Mesial</button><button class="surface center" data-s="${names[2]}">Oclusal</button><button class="surface right" data-s="${names[3]}">Distal</button><button class="surface bottom" data-s="${names[4]}">${names[4]}</button>`;document.querySelectorAll("#surfaceControls .surface").forEach(b=>{b.classList.toggle("active",surfaces.has(b.dataset.s));b.onclick=()=>toggleSurface(b.dataset.s)})}
+function syncSurfaceControls(){let names=selected?surfaceLayout(selected):["Vestibular","Mesial","Oclusal","Distal","Lingual / palatina"];$("surfaceControls").innerHTML=`<button class="surface top" data-s="${names[0]}">Vestibular</button><button class="surface left" data-s="${names[1]}">Mesial</button><button class="surface center" data-s="${names[2]}">Oclusal</button><button class="surface right" data-s="${names[3]}">Distal</button><button class="surface bottom" data-s="${names[4]}">${names[4]}</button>`;document.querySelectorAll("#surfaceControls .surface").forEach(b=>{b.classList.toggle("active",surfaces.has(b.dataset.s));b.onclick=()=>toggleSurface(b.dataset.s)})}
 function surfaceFill(n,s){let rr=records.filter(r=>r.tooth===n&&(r.surfaces||[]).includes(s));if(!rr.length)return "#fff";let r=rr[rr.length-1];return (r.status==="Tratado"||r.status==="Realizado")?"#b9ddce":(colors[r.diagnosis]||"#f5c7c7")}
-function surfaceCard(n,reverse){let ss=allSurfaces(n),abs=absentTeeth.has(n)||records.some(r=>r.tooth===n&&r.diagnosis==="Ausencia dental"),positions=["top","left","center","right","bottom"];let cells=ss.map((s,i)=>`<button class="surface-cell ${positions[i]} ${selected===n&&surfaces.has(s)?"active":""}" data-map-tooth="${n}" data-map-surface="${s}" title="${s}" aria-label="Diente ${n}, ${s}" style="${selected===n&&surfaces.has(s)?"":"background:"+surfaceFill(n,s)}">${surfaceShort(s)}</button>`).join("");let grid=`<div class="surface-grid">${cells}</div>`;let tooth=`${toothSilhouette(n)}<small>${n}</small>`;return `<div class="surface-tooth-card ${selected===n?"selected":""} ${abs?"absent":""}" data-card-tooth="${n}">${reverse?grid+tooth:tooth+grid}</div>`}
+function surfaceCard(n,reverse){let ss=surfaceLayout(n),abs=absentTeeth.has(n)||records.some(r=>r.tooth===n&&r.diagnosis==="Ausencia dental"),positions=["top","left","center","right","bottom"];let cells=ss.map((s,i)=>`<button class="surface-cell ${positions[i]} ${selected===n&&surfaces.has(s)?"active":""}" data-map-tooth="${n}" data-map-surface="${s}" title="${s}" aria-label="Diente ${n}, ${s}" style="${selected===n&&surfaces.has(s)?"":"background:"+surfaceFill(n,s)}">${surfaceShort(s)}</button>`).join("");let grid=`<div class="surface-grid">${cells}</div>`;let tooth=`${toothSilhouette(n)}<small>${n}</small>`;return `<div class="surface-tooth-card ${selected===n?"selected":""} ${abs?"absent":""}" data-card-tooth="${n}">${reverse?grid+tooth:tooth+grid}</div>`}
 function drawSurfaceView(u,l){$("upperSurfaces").innerHTML=u.map(n=>surfaceCard(n,false)).join("");$("lowerSurfaces").innerHTML=l.map(n=>surfaceCard(n,true)).join("");document.querySelectorAll("[data-map-tooth]").forEach(b=>b.onclick=()=>{let n=+b.dataset.mapTooth;if(absentTeeth.has(n)||records.some(r=>r.tooth===n&&r.diagnosis==="Ausencia dental"))return;if(selected!==n)choose(n);toggleSurface(b.dataset.mapSurface)});document.querySelectorAll("[data-card-tooth]").forEach(c=>c.onclick=e=>{if(e.target.closest("button"))return;choose(+c.dataset.cardTooth)})}
 function isAbsent(n){return absentTeeth.has(n)||records.some(r=>r.tooth===n&&r.diagnosis==="Ausencia dental")}
 function updateAbsentButtons(){let absent=selected!==null&&isAbsent(selected),b=$("toggleAbsent");if(b){b.textContent=selected===null?"Selecciona un diente":absent?"Rehabilitar diente "+selected:"Marcar diente como ausente";b.disabled=selected===null}}
